@@ -212,7 +212,7 @@ public class EventBus {
   public void post(Object event) {
     Iterator<Subscriber> eventSubscribers = subscribers.getSubscribers(event);//根据Event类型，获取对应的订阅者集合
     if (eventSubscribers.hasNext()) {
-      dispatcher.dispatch(event, eventSubscribers);
+      dispatcher.dispatch(event, eventSubscribers);//将事件分发给所有的订阅者
     } else if (!(event instanceof DeadEvent)) {
       // the event had no subscribers and was not itself a DeadEvent
       post(new DeadEvent(this, event));

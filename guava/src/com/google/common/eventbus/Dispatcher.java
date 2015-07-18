@@ -25,6 +25,9 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
+ * ImmediateDispatcher分发器无额外的线程处理事件。
+ * EventBus有一个线程专门处理事件，有一个线程私有的队列用于存放待处理事件。
+ * AsyncEventBus有线程池用于处理事件。有一个共享的CopyOnWriteQueue用于存放所有线程要处理的事件。
  * Handler for dispatching events to subscribers, providing different event ordering guarantees that
  * make sense for different situations.
  *
@@ -82,13 +85,14 @@ abstract class Dispatcher {
     // This dispatcher matches the original dispatch behavior of EventBus.
 
     /**
+     * 线程私有的队列
      * Per-thread queue of events to dispatch.
      */
     private final ThreadLocal<Queue<Event>> queue =
         new ThreadLocal<Queue<Event>>() {
           @Override
           protected Queue<Event> initialValue() {
-            return Queues.newArrayDeque();
+            return Queues.newArrayDeque();//双端队列
           }
         };
 
@@ -108,15 +112,18 @@ abstract class Dispatcher {
       checkNotNull(event);
       checkNotNull(subscribers);
       Queue<Event> queueForThread = queue.get();
-      queueForThread.offer(new Event(event, subscribers));
+      queueForThread.offer(new Event(event, subscribers));//入队，确保事件在队列中存放着
+      //本次入队不一定能够进行消费，需要在没有消费者的时候才能消费队列
+      //如果dispatching=true，即正处于处理阶段，则不消费队列。该队列只允许
 
+      //通过dispatching保证同一时刻只有一个分发存在
       if (!dispatching.get()) {//防止同时有两个线程在对队列进行分发
         dispatching.set(true);
         try {
           Event nextEvent;
           while ((nextEvent = queueForThread.poll()) != null) {//取出队列的所有事件
             while (nextEvent.subscribers.hasNext()) {//向该事件的订阅者分发该事件
-              nextEvent.subscribers.next().dispatchEvent(nextEvent.event);
+              nextEvent.subscribers.next().dispatchEvent(nextEvent.event);//调用线程池处理
             }
           }
         } finally {
@@ -138,6 +145,8 @@ abstract class Dispatcher {
   }
 
   /**
+   * 异步事件总线中事件的分发器。由于事件在不同线程上提交，因此无法保证事件的顺序。
+   * 对于存在队列的
    * Implementation of a {@link #legacyAsync()} dispatcher.
    */
   private static final class LegacyAsyncDispatcher extends Dispatcher {
@@ -169,13 +178,14 @@ abstract class Dispatcher {
     @Override
     void dispatch(Object event, Iterator<Subscriber> subscribers) {
       checkNotNull(event);
-      while (subscribers.hasNext()) {
+      //生产者消费者模式
+      while (subscribers.hasNext()) {//将所有订阅关系加入到并发队列中
         queue.add(new EventWithSubscriber(event, subscribers.next()));
       }
 
       EventWithSubscriber e;
-      while ((e = queue.poll()) != null) {
-        e.subscriber.dispatchEvent(e.event);
+      while ((e = queue.poll()) != null) {//取出并发队列中的数据，并进行消费
+        e.subscriber.dispatchEvent(e.event);//调用线程池进行处理
       }
     }
 
@@ -191,6 +201,9 @@ abstract class Dispatcher {
   }
 
   /**
+   * 不存在队列用于缓存事件。
+   * 事件一过来，马上调用对应的订阅者消费事件。
+   * 只有在事件消费完后才返回，也就是postEvent是要等到事件处理完才能返回处理结果。
    * Implementation of {@link #immediate()}.
    */
   private static final class ImmediateDispatcher extends Dispatcher {

@@ -430,6 +430,7 @@ public final class MoreExecutors {
   }
 
   /**
+   * 返回一个在executor()内调用Runnable#run的单线程Executor。这种方式
    * Returns an {@link Executor} that runs each task in the thread that invokes
    * {@link Executor#execute execute}, as in {@link CallerRunsPolicy}.
    *

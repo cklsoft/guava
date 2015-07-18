@@ -32,12 +32,13 @@ import javax.annotation.Nullable;
  *
  * <p>Two subscribers are equivalent when they refer to the same method on the same object (not
  * class). This property is used to ensure that no subscriber method is registered more than once.
- *
+ * 通过将订阅者设置为static final保证不会被注册两次
  * @author Colin Decker
  */
 class Subscriber {
 
   /**
+   * 根据方法是否线程安全创建一个同步或异步的监听者。
    * Creates a {@code Subscriber} for {@code method} on {@code listener}.
    */
   static Subscriber create(EventBus bus, Object listener, Method method) {
@@ -63,7 +64,7 @@ class Subscriber {
     this.bus = bus;
     this.target = checkNotNull(target);
     this.method = method;
-    method.setAccessible(true);
+    method.setAccessible(true);//针对可能处理方法是私有的情况，为了在外部能够调用，需要设为true
 
     this.executor = bus.executor();
   }
@@ -76,7 +77,7 @@ class Subscriber {
       @Override
       public void run() {
         try {
-          invokeSubscriberMethod(event);
+          invokeSubscriberMethod(event);//调用订阅者中的处理事件方法
         } catch (InvocationTargetException e) {
           bus.handleSubscriberException(e.getCause(), context(event));
         }
@@ -91,7 +92,7 @@ class Subscriber {
   @VisibleForTesting
   void invokeSubscriberMethod(Object event) throws InvocationTargetException {
     try {
-      method.invoke(target, checkNotNull(event));
+      method.invoke(target, checkNotNull(event));//以反射的方式调用处理方法
     } catch (IllegalArgumentException e) {
       throw new Error("Method rejected target/argument: " + event, e);
     } catch (IllegalAccessException e) {
@@ -137,11 +138,12 @@ class Subscriber {
   }
 
   /**
+   * 异步方法调用，保证了处理方法在一个时刻只被一个线程调用。不会出现多个线程同时调用处理方法的现象。
    * Subscriber that synchronizes invocations of a method to ensure that only one thread may enter
    * the method at a time.
    */
   @VisibleForTesting
-  static final class SynchronizedSubscriber extends Subscriber {
+  static final class SynchronizedSubscriber extends Subscriber {//标记为final使得不被继承,内部静态类对所有实例都可见
 
     private SynchronizedSubscriber(EventBus bus, Object target, Method method) {
       super(bus, target, method);
@@ -149,7 +151,7 @@ class Subscriber {
 
     @Override
     void invokeSubscriberMethod(Object event) throws InvocationTargetException {
-      synchronized (this) {
+      synchronized (this) {//需要并发控制，调用父辈方法
         super.invokeSubscriberMethod(event);
       }
     }

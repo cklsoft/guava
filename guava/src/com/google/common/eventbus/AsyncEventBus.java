@@ -21,6 +21,7 @@ import com.google.common.annotations.Beta;
 import java.util.concurrent.Executor;
 
 /**
+ * 异步事件创建异步分发器
  * An {@link EventBus} that takes the Executor of your choice and uses it to
  * dispatch events, allowing dispatch to occur asynchronously.
  *
@@ -55,7 +56,7 @@ public class AsyncEventBus extends EventBus {
    * @since 16.0
    */
   public AsyncEventBus(Executor executor, SubscriberExceptionHandler subscriberExceptionHandler) {
-    super("default", executor, Dispatcher.legacyAsync(), subscriberExceptionHandler);
+    super("default", executor, Dispatcher.legacyAsync(), subscriberExceptionHandler);//创建一个异步分发器
   }
 
   /**

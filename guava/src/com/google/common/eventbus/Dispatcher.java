@@ -110,18 +110,18 @@ abstract class Dispatcher {
       Queue<Event> queueForThread = queue.get();
       queueForThread.offer(new Event(event, subscribers));
 
-      if (!dispatching.get()) {
+      if (!dispatching.get()) {//防止同时有两个线程在对队列进行分发
         dispatching.set(true);
         try {
           Event nextEvent;
-          while ((nextEvent = queueForThread.poll()) != null) {
-            while (nextEvent.subscribers.hasNext()) {
+          while ((nextEvent = queueForThread.poll()) != null) {//取出队列的所有事件
+            while (nextEvent.subscribers.hasNext()) {//向该事件的订阅者分发该事件
               nextEvent.subscribers.next().dispatchEvent(nextEvent.event);
             }
           }
         } finally {
-          dispatching.remove();
-          queue.remove();
+          dispatching.remove();//删除线程内对应的值
+          queue.remove();//队列内的事件分发完毕，可以清空该队列了
         }
       }
     }

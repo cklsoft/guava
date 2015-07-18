@@ -210,7 +210,7 @@ public class EventBus {
    * @param event  event to post.
    */
   public void post(Object event) {
-    Iterator<Subscriber> eventSubscribers = subscribers.getSubscribers(event);
+    Iterator<Subscriber> eventSubscribers = subscribers.getSubscribers(event);//根据Event类型，获取对应的订阅者集合
     if (eventSubscribers.hasNext()) {
       dispatcher.dispatch(event, eventSubscribers);
     } else if (!(event instanceof DeadEvent)) {
